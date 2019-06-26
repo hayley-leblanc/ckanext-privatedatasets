@@ -254,14 +254,19 @@ class PrivateDatasets(p.SingletonPlugin, tk.DefaultDatasetForm, DefaultPermissio
         user_obj = context.get('auth_user_obj')
         updating_via_api = context.get(constants.CONTEXT_CALLBACK, False)
 
-        # allowed_users and searchable fileds can be only viewed by (and only if the dataset is private):
+        # allowed_users and searchable fields can be only viewed by (and only if the dataset is private):
         # * the dataset creator
         # * the sysadmin
+        # * users in the dataset's organization with editor or admin privileges
         # * users allowed to update the allowed_users list via the notification API
-        if pkg_dict.get('private') is False or not updating_via_api and (not user_obj or (pkg_dict['creator_user_id'] != user_obj.id and not user_obj.sysadmin)):
-            # The original list cannot be modified
-            attrs = list(HIDDEN_FIELDS)
-            self._delete_pkg_atts(pkg_dict, attrs)
+        if (pkg_dict.get('private') is False or not updating_via_api) and not user_obj:
+            # check if the user has permission to update the package
+            try:
+                tk.check_access('package_update', context, pkg_dict)
+            except tk.NotAuthorized:
+                # The original list cannot be modified
+                attrs = list(HIDDEN_FIELDS)
+                self._delete_pkg_atts(pkg_dict, attrs)
 
         return pkg_dict
 
